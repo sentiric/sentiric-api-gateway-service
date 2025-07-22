@@ -1,0 +1,22 @@
+
+services:
+  api-gateway:
+    image: ${DOCKER_REGISTRY:-ghcr.io/sentiric}/sentiric-api-gateway-service:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentiric_api_gateway
+    env_file:
+      - ./.env
+    # Dış dünyaya açılan ana kapı. 80 ve 443 portları buradan yönetilir.
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - sentiric-net
+    restart: always
+
+networks:
+  sentiric-net:
+    name: ${NETWORK_NAME:-sentiric-net}
+    driver: bridge

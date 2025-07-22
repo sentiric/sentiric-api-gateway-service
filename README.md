@@ -12,6 +12,7 @@
 *   Node.js (e.g., Express, Fastify) or Go (e.g., Fiber, Gin)
 *   HTTP proxy libraries.
 *   Authentication/Authorization libraries (e.g., JWT).
+*   Fwe can test open-source Traefik [https://github.com/traefik/traefik/] 
 
 **API Interactions (As an API Provider & Client):**
 *   **As a Provider:** Exposes the public-facing APIs for `sentiric-dashboard-ui`, `sentiric-web-agent-ui`, `sentiric-embeddable-voice-widget-sdk`, `sentiric-cli`.
