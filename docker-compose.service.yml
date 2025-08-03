@@ -6,7 +6,7 @@ networks:
 services:
   api-gateway:
     build:
-      context: ../sentiric-api-gateway-service
+      context: .
       dockerfile: Dockerfile
       args:
         SERVICE_NAME: sentiric-api-gateway-service
