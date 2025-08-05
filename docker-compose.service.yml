@@ -3,21 +3,84 @@ networks:
     name: ${NETWORK_NAME:-sentiric-net}
     driver: bridge
 
+volumes:
+  postgres_data:    
+
 services:
-  api-gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: sentiric-api-gateway-service
+
+  postgres:
+    image: postgres:16-alpine
     env_file:
       - ./.env
     volumes:
-      - ../sentiric-infrastructure/tls/certs:/etc/sentiric/tls:ro
-    ports:
-      - "${API_GATEWAY_SERVICE_PORT}:${API_GATEWAY_SERVICE_PORT}"
+      - postgres_data:/var/lib/postgresql/data
+      - ../sentiric-infrastructure/postgres-init:/docker-entrypoint-initdb.d
+    # ports:
+    #   - "${POSTGRES_DB_PORT}:${POSTGRES_DB_PORT}"      
     networks:
       - sentiric-net
     profiles:
       - default
+      - data
     restart: always
+    # YENİ EKLENEN KISIM
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  user-service:
+    build:
+      context: ../sentiric-user-service
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: sentiric-user-service
+    env_file:
+      - ./.env
+    volumes:
+      - ../sentiric-infrastructure/tls/certs:/etc/sentiric/tls:ro
+    # ports:
+    #   - "${USER_SERVICE_GRPC_PORT}:${USER_SERVICE_GRPC_PORT}"
+    networks:
+      - sentiric-net
+    profiles:
+      - default
+      - app
+    restart: always
+    # YENİ EKLENEN KISIM
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api-gateway:
+
+    build:
+      context: .
+      dockerfile: Dockerfile         
+      args:
+        SERVICE_NAME: sentiric-api-gateway-service
+
+    env_file:
+      - ./.env
+
+    volumes:
+      - ../sentiric-infrastructure/tls/certs:/etc/sentiric/tls:ro
+      
+    ports:
+      - "${API_GATEWAY_SERVICE_PORT}:${API_GATEWAY_SERVICE_PORT}"
+
+    networks:
+      - sentiric-net
+
+    profiles:
+      - default
+
+    restart: always
+
+    depends_on:
+      user-service:
+        condition: service_started
+      # Gelecekte eklenecek diğer servisler...
+      # dialplan-service:
+      #   condition: service_started      
