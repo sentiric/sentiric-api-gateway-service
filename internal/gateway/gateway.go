@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time" // YENİ
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/rs/zerolog"
@@ -17,17 +18,16 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+// ... (Config struct ve LoadConfig fonksiyonu aynı) ...
 type Config struct {
 	HttpPort        string
 	UserServiceAddr string
-	// ... diğer servis adresleri ...
-	CertPath string
-	KeyPath  string
-	CaPath   string
+	CertPath        string
+	KeyPath         string
+	CaPath          string
 }
 
 func LoadConfig() (*Config, error) {
-	// Ortam değişkenlerinden konfigürasyonu yükle
 	return &Config{
 		HttpPort:        os.Getenv("API_GATEWAY_SERVICE_PORT"),
 		UserServiceAddr: os.Getenv("USER_SERVICE_GRPC_URL"),
@@ -37,34 +37,54 @@ func LoadConfig() (*Config, error) {
 	}, nil
 }
 
-// Run, HTTP sunucusunu başlatır ve gRPC isteklerini yönlendirir.
+// YENİ: Loglama Middleware'i
+func loggingMiddleware(next http.Handler, log zerolog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		// İsteği bir sonraki handler'a (bizim durumumuzda gRPC gateway mux'ı) iletiyoruz.
+		next.ServeHTTP(w, r)
+
+		duration := time.Since(start)
+
+		log.Info().
+			Str("http_method", r.Method).
+			Str("http_path", r.URL.Path).
+			// Not: Durum kodunu almak için daha gelişmiş bir response writer sarmalayıcı gerekir.
+			// Şimdilik bu temel loglama yeterlidir.
+			Dur("duration", duration).
+			Msg("http.request.completed")
+	})
+}
+
 func Run(cfg *Config, log zerolog.Logger) error {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Gelen HTTP isteklerini yönlendirecek olan ana multiplexer'ı oluştur
 	mux := runtime.NewServeMux()
 
-	// user-service için mTLS istemci kimlik bilgilerini oluştur
 	creds, err := newClientTLS(cfg.CertPath, cfg.KeyPath, cfg.CaPath, cfg.UserServiceAddr)
 	if err != nil {
 		return fmt.Errorf("failed to create client TLS credentials: %w", err)
 	}
 
-	// user-service'e bağlanmak için gRPC dial options
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
 
-	// HTTP isteklerini user-service'e yönlendirmek için register et
 	err = userv1.RegisterUserServiceHandlerFromEndpoint(ctx, mux, cfg.UserServiceAddr, opts)
 	if err != nil {
 		return fmt.Errorf("failed to register user service handler: %w", err)
 	}
 
+	// YENİ: Ana handler'ımızı loglama middleware'i ile sarmalıyoruz
+	handlerWithLogging := loggingMiddleware(mux, log)
+
 	log.Info().Str("port", cfg.HttpPort).Msg("Starting HTTP server for gRPC Gateway")
-	return http.ListenAndServe(fmt.Sprintf(":%s", cfg.HttpPort), mux)
+	// YENİ: Sarmalanmış handler'ı kullanıyoruz
+	return http.ListenAndServe(fmt.Sprintf(":%s", cfg.HttpPort), handlerWithLogging)
 }
 
+// ... (newClientTLS fonksiyonu aynı) ...
 func newClientTLS(certPath, keyPath, caPath, serverAddr string) (credentials.TransportCredentials, error) {
 	clientCert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
@@ -77,7 +97,6 @@ func newClientTLS(certPath, keyPath, caPath, serverAddr string) (credentials.Tra
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
-	// 'serverAddr' genellikle 'hostname:port' formatındadır, sadece hostname kısmını alalım
 	serverName := strings.Split(serverAddr, ":")[0]
 
 	return credentials.NewTLS(&tls.Config{
