@@ -1,3 +1,4 @@
+// ========== FILE: sentiric-api-gateway-service/go.mod ==========
 module github.com/sentiric/sentiric-api-gateway-service
 
 go 1.24.5
@@ -6,7 +7,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/zerolog v1.34.0
-	github.com/sentiric/sentiric-contracts v1.4.1
+	github.com/sentiric/sentiric-contracts v1.5.1 // <-- GÜNCELLENDİ
 	google.golang.org/grpc v1.74.2
 )
 
