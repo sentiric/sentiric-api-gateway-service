@@ -1,32 +1,33 @@
-# Dockerfile for Go services with a cmd subdirectory
+# --- İNŞA AŞAMASI (DEBIAN TABANLI) ---
+FROM golang:1.24-bullseye AS builder
 
-# --- STAGE 1: Builder ---
-FROM golang:1.24.5-alpine AS builder
-
-# grpc-gateway'in derleme bağımlılıkları olabilir
-RUN apk add --no-cache git build-base
+# Git, CGO ve grpc-gateway bağımlılıkları için
+RUN apt-get update && apt-get install -y --no-install-recommends git build-essential
 
 WORKDIR /app
 
+# Sadece bağımlılıkları indir ve cache'le
 COPY go.mod go.sum ./
 RUN go mod download
 
+# Tüm kaynak kodunu kopyala
 COPY . .
 
-# DÜZELTME: Doğru main paketini build ediyoruz
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/api-gateway-service -v ./cmd/server
+ARG SERVICE_NAME
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/${SERVICE_NAME} -v ./cmd/server
 
-# --- STAGE 2: Final Image ---
+# --- ÇALIŞTIRMA AŞAMASI (ALPINE) ---
 FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates
 
+ARG SERVICE_NAME
 WORKDIR /app
 
-# Derlenmiş binary'yi kopyala
-COPY --from=builder /app/api-gateway-service .
+# Sadece derlenmiş binary'yi kopyala
+COPY --from=builder /app/bin/${SERVICE_NAME} .
 
-# Servisin çalışacağı portu dışarıya aç
-EXPOSE 8080
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 
-ENTRYPOINT ["./api-gateway-service"]
+ENTRYPOINT ["./sentiric-api-gateway-service"]
