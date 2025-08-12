@@ -1,38 +1,48 @@
-# Sentiric API Gateway Service
+# 🚪 Sentiric API Gateway Service
 
-**Description:** A unified API Gateway and/or Backend-for-Frontend (BFF) layer for all Sentiric microservices, providing a single entry point for external API consumers.
+[![Status](https://img.shields.io/badge/status-active-success.svg)]()
+[![Language](https://img.shields.io/badge/language-Go-blue.svg)]()
+[![Protocol](https://img.shields.io/badge/protocol-gRPC--Gateway_(REST)-orange.svg)]()
 
-**Core Responsibilities:**
-*   Receiving all incoming API requests from external clients and routing them to the appropriate internal microservices.
-*   Enforcing centralized authentication and authorization (AuthN/AuthZ) for all API requests.
-*   Managing cross-cutting concerns such as rate limiting, caching, and request/response transformations.
-*   Simplifying client-side integration by aggregating multiple internal APIs into a single, cohesive interface.
+**Sentiric API Gateway Service**, tüm harici istemciler (`dashboard-ui`, `cli`, üçüncü parti uygulamalar) için platformun **tek, birleşik ve güvenli giriş kapısıdır.** Temel görevi, dış dünyanın konuştuğu RESTful JSON API'lerini, platformun iç dünyasının konuştuğu yüksek performanslı gRPC protokolüne çevirmektir.
 
-**Technologies:**
-*   Node.js (e.g., Express, Fastify) or Go (e.g., Fiber, Gin)
-*   HTTP proxy libraries.
-*   Authentication/Authorization libraries (e.g., JWT).
-*   Fwe can test open-source Traefik [https://github.com/traefik/traefik/] 
+Bu servis, `grpc-gateway` kütüphanesini kullanarak Protobuf tanımlarından otomatik olarak bir REST proxy'si oluşturur.
 
-**API Interactions (As an API Provider & Client):**
-*   **As a Provider:** Exposes the public-facing APIs for `sentiric-dashboard-ui`, `sentiric-web-agent-ui`, `sentiric-embeddable-voice-widget-sdk`, `sentiric-cli`.
-*   **As a Client:** Calls APIs of all other internal microservices (e.g., `sentiric-user-service`, `sentiric-dialplan-service`, `sentiric-agent-service`, `sentiric-stt-service`, `sentiric-tts-service`, `sentiric-cdr-service`).
+## 🎯 Temel Sorumluluklar
 
-**Local Development:**
-1.  Clone this repository: `git clone https://github.com/sentiric/sentiric-api-gateway-service.git`
-2.  Navigate into the directory: `cd sentiric-api-gateway-service`
-3.  Install dependencies: `npm install` (Node.js) or `go mod tidy` (Go).
-4.  Create a `.env` file from `.env.example` to configure routing rules, internal service URLs, and authentication settings.
-5.  Start the service: `npm start` (Node.js) or `go run main.go` (Go).
+*   **Protokol Çevirimi:** Gelen HTTP/REST isteklerini, ilgili gRPC mikroservisine (örn: `user-service`) yönlendirir ve gRPC yanıtını HTTP/JSON formatına çevirerek istemciye geri döner.
+*   **Merkezi Giriş Noktası:** Dış istemcilerin, platformdaki onlarca mikroservisin adresini tek tek bilmesine gerek kalmadan tek bir adresten tüm platforma erişmesini sağlar.
+*   **Güvenlik ve Yetkilendirme (Gelecek):** Gelen tüm istekler için merkezi kimlik doğrulama (JWT) ve yetkilendirme (RBAC) katmanı olarak görev yapacaktır.
+*   **Rate Limiting ve Caching (Gelecek):** Platformu kötü niyetli kullanımdan korumak ve performansı artırmak için merkezi hız sınırlama ve önbellekleme mekanizmaları uygulayacaktır.
 
-**Configuration:**
-Refer to `config/` directory and `.env.example` for service-specific configurations, including routing tables, security policies, and caching settings.
+## 🛠️ Teknoloji Yığını
 
-**Deployment:**
-Designed for containerized deployment (e.g., Docker, Kubernetes). Often deployed with load balancers for high availability. Refer to `sentiric-infrastructure`.
+*   **Dil:** Go
+*   **Protokol Çevirimi:** `grpc-gateway/v2`
+*   **Servisler Arası İletişim:** gRPC (mTLS ile)
+*   **Loglama:** `zerolog` ile yapılandırılmış, ortama duyarlı loglama.
 
-**Contributing:**
-We welcome contributions! Please refer to the [Sentiric Governance](https://github.com/sentiric/sentiric-governance) repository for coding standards and contribution guidelines.
+## 🔌 API Etkileşimleri
 
-**License:**
-This project is licensed under the [License](LICENSE).
+*   **Gelen (Sunucu):**
+    *   `sentiric-dashboard-ui` (REST/JSON)
+    *   `sentiric-cli` (REST/JSON)
+*   **Giden (İstemci):**
+    *   `sentiric-user-service` (gRPC)
+    *   `sentiric-dialplan-service` (gRPC)
+    *   (Gelecekte eklenecek diğer tüm gRPC servisleri...)
+
+## 🚀 Yerel Geliştirme
+
+1.  **Bağımlılıkları Yükleyin:** `go mod tidy`
+2.  **Ortam Değişkenlerini Ayarlayın:** `.env.docker`'ı `.env` olarak kopyalayın ve `USER_SERVICE_GRPC_URL` gibi hedef servislerin adreslerinin doğru olduğundan emin olun.
+3.  **Servisi Çalıştırın:** `go run ./cmd/server`
+
+## 🤝 Katkıda Bulunma
+
+Katkılarınızı bekliyoruz! Lütfen projenin ana [Sentiric Governance](https://github.com/sentiric/sentiric-governance) reposundaki kodlama standartlarına ve katkıda bulunma rehberine göz atın.
+
+---
+## 🏛️ Anayasal Konum
+
+Bu servis, [Sentiric Anayasası'nın (v11.0)](https://github.com/sentiric/sentiric-governance/blob/main/docs/blueprint/Architecture-Overview.md) **Zeka & Orkestrasyon Katmanı**'nda yer alan merkezi bir bileşendir.
