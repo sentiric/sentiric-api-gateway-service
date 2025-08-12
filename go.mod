@@ -5,11 +5,12 @@ go 1.24.5
 
 require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1
-	github.com/joho/godotenv v1.5.1
 	github.com/rs/zerolog v1.34.0
-	github.com/sentiric/sentiric-contracts v1.5.1 // <-- GÜNCELLENDİ
+	github.com/sentiric/sentiric-contracts v1.6.0
 	google.golang.org/grpc v1.74.2
 )
+
+require github.com/joho/godotenv v1.5.1
 
 require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
