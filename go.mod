@@ -6,7 +6,7 @@ go 1.24.5
 require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1
 	github.com/rs/zerolog v1.34.0
-	github.com/sentiric/sentiric-contracts v1.7.4 // DÜZELTME
+	github.com/sentiric/sentiric-contracts v1.7.8 // DÜZELTME
 	google.golang.org/grpc v1.74.2
 )
 
