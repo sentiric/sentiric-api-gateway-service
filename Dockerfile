@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 ARG SERVICE_NAME
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/${SERVICE_NAME} -v ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/sentiric-api-gateway-service -v ./cmd/server
 
 # --- ÇALIŞTIRMA AŞAMASI (ALPINE) ---
 FROM alpine:latest
@@ -25,7 +25,7 @@ ARG SERVICE_NAME
 WORKDIR /app
 
 # Sadece derlenmiş binary'yi kopyala
-COPY --from=builder /app/bin/${SERVICE_NAME} .
+COPY --from=builder /app/bin/sentiric-api-gateway-service .
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
