@@ -8,12 +8,12 @@ WORKDIR /app
 
 # Sadece bağımlılıkları indir ve cache'le
 COPY go.mod go.sum ./
+
 RUN go mod download
 
 # Tüm kaynak kodunu kopyala
 COPY . .
 
-ARG SERVICE_NAME
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/sentiric-api-gateway-service -v ./cmd/server
 
 # --- ÇALIŞTIRMA AŞAMASI (ALPINE) ---
@@ -21,13 +21,9 @@ FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates
 
-ARG SERVICE_NAME
 WORKDIR /app
 
 # Sadece derlenmiş binary'yi kopyala
 COPY --from=builder /app/bin/sentiric-api-gateway-service .
-
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
 
 ENTRYPOINT ["./sentiric-api-gateway-service"]
