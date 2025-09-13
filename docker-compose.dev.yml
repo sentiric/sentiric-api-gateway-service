@@ -1,0 +1,46 @@
+# docker-compose.prod.yml
+# Service Üretim ortamı
+
+networks:
+  sentiric-net:
+    name: "${NETWORK_NAME:-sentiric-net}"
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${NETWORK_SUBNET}
+          gateway: ${NETWORK_GATEWAY}
+
+# volumes:
+  # [infra]: Temel Altyapı (Infrastructure Layer)
+  # --------------------------------------------------
+
+services:
+  # [presentation-gateway]: Arayüz ve Giriş Katmanı (Presentation Layer)
+  # --------------------------------------------------     
+
+  api-gateway:
+    build: { context: ../sentiric-api-gateway-service }
+    env_file: ["${ENV_FILE_PATH}"]
+    volumes: 
+      - "${CONFIG_REPO_PATH}:/sentiric-config:ro"
+      - "${CERTIFICATES_REPO_PATH}:/sentiric-certificates:ro"
+      - "${ASSETS_REPO_PATH}:/sentiric-assets:ro"
+    ports: 
+      - "18010:${API_GATEWAY_HTTP_PORT:-18010}"
+      - "18011:${API_GATEWAY_GRPC_PORT:-18011}"
+      - "18012:${API_GATEWAY_METRICS_PORT:-18012}"            
+    networks:
+      sentiric-net:
+        ipv4_address: ${API_GATEWAY_IPV4_ADDRESS}
+    dns:
+      - ${PRIMARY_DNS:-8.8.8.8}
+      - ${SECONDARY_DNS:-1.1.1.1} 
+    restart: always
+    # depends_on:
+    #   dialplan-service: { condition: service_healthy }      
+    # healthcheck:
+    #   test: ["CMD", "nc", "-z", "localhost", "18010"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+    #   start_period: 5s

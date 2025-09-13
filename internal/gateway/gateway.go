@@ -29,10 +29,10 @@ type Config struct {
 
 func LoadConfig() (*Config, error) {
 	return &Config{
-		HttpPort:        os.Getenv("API_GATEWAY_SERVICE_PORT"),
+		HttpPort:        os.Getenv("API_GATEWAY_HTTP_PORT"),
 		UserServiceAddr: os.Getenv("USER_SERVICE_GRPC_URL"),
-		CertPath:        os.Getenv("API_GATEWAY_SERVICE_CERT_PATH"),
-		KeyPath:         os.Getenv("API_GATEWAY_SERVICE_KEY_PATH"),
+		CertPath:        os.Getenv("API_GATEWAY_CERT_PATH"),
+		KeyPath:         os.Getenv("API_GATEWAY_KEY_PATH"),
 		CaPath:          os.Getenv("GRPC_TLS_CA_PATH"),
 	}, nil
 }
