@@ -9,16 +9,17 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time" // YENİ
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/rs/zerolog"
 	userv1 "github.com/sentiric/sentiric-contracts/gen/go/sentiric/user/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-// ... (Config struct ve LoadConfig fonksiyonu aynı) ...
+// Config ve LoadConfig aynı kalır...
 type Config struct {
 	HttpPort        string
 	UserServiceAddr string
@@ -37,24 +38,30 @@ func LoadConfig() (*Config, error) {
 	}, nil
 }
 
-// YENİ: Loglama Middleware'i
+
+// loggingMiddleware aynı kalır...
 func loggingMiddleware(next http.Handler, log zerolog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// YENİ: /healthz isteklerini loglamadan atla
+		if r.URL.Path == "/healthz" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		start := time.Now()
-
-		// İsteği bir sonraki handler'a (bizim durumumuzda gRPC gateway mux'ı) iletiyoruz.
 		next.ServeHTTP(w, r)
-
 		duration := time.Since(start)
-
 		log.Info().
 			Str("http_method", r.Method).
 			Str("http_path", r.URL.Path).
-			// Not: Durum kodunu almak için daha gelişmiş bir response writer sarmalayıcı gerekir.
-			// Şimdilik bu temel loglama yeterlidir.
 			Dur("duration", duration).
 			Msg("http.request.completed")
 	})
+}
+
+// "Sessiz" health check handler'ı
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ok"}`))
 }
 
 func Run(cfg *Config, log zerolog.Logger) error {
@@ -62,29 +69,69 @@ func Run(cfg *Config, log zerolog.Logger) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	mux := runtime.NewServeMux()
+	mainMux := http.NewServeMux()
+	mainMux.HandleFunc("/healthz", healthzHandler)
 
-	creds, err := newClientTLS(cfg.CertPath, cfg.KeyPath, cfg.CaPath, cfg.UserServiceAddr)
-	if err != nil {
-		return fmt.Errorf("failed to create client TLS credentials: %w", err)
-	}
+	go func() {
+		log.Info().Str("dependency", cfg.UserServiceAddr).Msg("Arka uç gRPC servisine bağlanılmaya çalışılıyor...")
+		
+		var creds credentials.TransportCredentials
+		var err error
 
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
+		if cfg.CertPath == "" || os.Getenv("ENV") == "development" {
+			log.Warn().Msg("mTLS sertifikaları bulunamadı veya geliştirme ortamı. Güvensiz (insecure) gRPC bağlantısı kullanılıyor.")
+			creds = insecure.NewCredentials()
+		} else {
+			creds, err = newClientTLS(cfg.CertPath, cfg.KeyPath, cfg.CaPath, cfg.UserServiceAddr)
+			if err != nil {
+				log.Error().Err(err).Msg("gRPC istemci TLS kimlik bilgileri oluşturulamadı. Gateway proxy olarak çalışmayacak.")
+				return
+			}
+		}
 
-	err = userv1.RegisterUserServiceHandlerFromEndpoint(ctx, mux, cfg.UserServiceAddr, opts)
-	if err != nil {
-		return fmt.Errorf("failed to register user service handler: %w", err)
-	}
+		opts := []grpc.DialOption{
+			grpc.WithTransportCredentials(creds),
+		}
 
-	// YENİ: Ana handler'ımızı loglama middleware'i ile sarmalıyoruz
-	handlerWithLogging := loggingMiddleware(mux, log)
+		var conn *grpc.ClientConn
+		for i := 0; i < 10; i++ {
+			// --- DÜZELTME BURADA ---
+			dialCtx, dialCancel := context.WithTimeout(ctx, 10*time.Second)
+			// grpc.NewClient yerine grpc.DialContext kullanıyoruz ve dialCtx'i geçiriyoruz.
+			conn, err = grpc.DialContext(dialCtx, cfg.UserServiceAddr, opts...)
+			dialCancel() // Context'i hemen iptal et
+			// --- DÜZELTME SONU ---
+			if err == nil {
+				log.Info().Str("dependency", cfg.UserServiceAddr).Msg("Arka uç gRPC servisine başarıyla bağlanıldı.")
+				break
+			}
+			log.Warn().Err(err).Int("attempt", i+1).Msg("Arka uç servisine bağlanılamadı, tekrar denenecek...")
+			time.Sleep(5 * time.Second)
+		}
 
-	log.Info().Str("port", cfg.HttpPort).Msg("Starting HTTP server for gRPC Gateway")
-	// YENİ: Sarmalanmış handler'ı kullanıyoruz
-	return http.ListenAndServe(fmt.Sprintf(":%s", cfg.HttpPort), handlerWithLogging)
+		if err != nil {
+			log.Error().Err(err).Msg("Maksimum deneme sonrası arka uç servisine bağlanılamadı. Gateway proxy olarak çalışmayacak.")
+			return
+		}
+		defer conn.Close()
+		
+		grpcGatewayMux := runtime.NewServeMux()
+		// DÜZELTME: RegisterUserServiceHandlerFromEndpoint yerine RegisterUserServiceHandler kullanıyoruz, çünkü artık bir 'conn' nesnemiz var.
+		err = userv1.RegisterUserServiceHandler(ctx, grpcGatewayMux, conn)
+		if err != nil {
+			log.Error().Err(err).Msg("gRPC gateway handler'ı kaydedilemedi.")
+			return
+		}
+		
+		mainMux.Handle("/", loggingMiddleware(grpcGatewayMux, log))
+		log.Info().Msg("gRPC Gateway başarıyla başlatıldı ve ana yönlendiriciye eklendi.")
+	}()
+
+	log.Info().Str("port", cfg.HttpPort).Msg("HTTP sunucusu başlatılıyor (/healthz endpoint'i aktif).")
+	return http.ListenAndServe(fmt.Sprintf(":%s", cfg.HttpPort), mainMux)
 }
 
-// ... (newClientTLS fonksiyonu aynı) ...
+
 func newClientTLS(certPath, keyPath, caPath, serverAddr string) (credentials.TransportCredentials, error) {
 	clientCert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {

@@ -51,6 +51,13 @@ Bu belge, `api-gateway-service`'in geliştirme görevlerini projenin genel fazla
     -   **Açıklama:** Sık istenen ve nadiren değişen verileri Redis'te önbelleğe alarak arka uç servislerin yükünü azalt.
     -   **Durum:** ⬜ Planlandı.
 
+-   **Görev ID: GW-005 - "Sessiz" Sağlık Kontrolü Endpoint'i Ekle**
+    -   **Durum:** ✅ **Tamamlandı**
+    -   **Açıklama:** Log kirliliğini önlemek ve `docker-compose`'da `service_healthy` koşulunu desteklemek için, loglama middleware'inden geçmeyen bir `/healthz` endpoint'i eklendi.
+    -   **Kabul Kriterleri:**
+        -   [x] `/healthz` endpoint'i `200 OK` yanıtı dönmeli.
+        -   [x] Bu endpoint'e yapılan istekler, `loggingMiddleware` tarafından loglanmamalıdır.  
+
 ---
 
 

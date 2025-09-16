@@ -6,13 +6,25 @@ import (
 	"github.com/sentiric/sentiric-api-gateway-service/internal/logger"
 )
 
+// YENİ: ldflags ile doldurulacak değişkenler
+var (
+	ServiceVersion string
+	GitCommit      string
+	BuildDate      string
+)
+
 const serviceName = "api-gateway-service"
 
 func main() {
 	godotenv.Load()
 	log := logger.New(serviceName)
 
-	log.Info().Msg("Starting Sentiric API Gateway Service")
+	// YENİ: Başlangıçta versiyon bilgisini logla
+	log.Info().
+		Str("version", ServiceVersion).
+		Str("commit", GitCommit).
+		Str("build_date", BuildDate).
+		Msg("🚀 Starting Sentiric API Gateway Service")
 
 	cfg, err := gateway.LoadConfig()
 	if err != nil {
