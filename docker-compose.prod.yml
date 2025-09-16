@@ -36,11 +36,12 @@ services:
       - ${PRIMARY_DNS:-8.8.8.8}
       - ${SECONDARY_DNS:-1.1.1.1} 
     restart: always
-    # healthcheck:
-    #   test: ["CMD", "nc", "-z", "localhost", "18010"]
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 5
-    #   start_period: 5s    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18010/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     # depends_on:
     #   dialplan-service: { condition: service_healthy }
+    #   user-service: { condition: service_healthy }
