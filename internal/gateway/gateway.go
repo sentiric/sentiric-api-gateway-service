@@ -1,3 +1,4 @@
+// sentiric-api-gateway-service/internal/gateway/gateway.go
 package gateway
 
 import (
@@ -19,7 +20,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// Config ve LoadConfig aynı kalır...
 type Config struct {
 	HttpPort        string
 	UserServiceAddr string
@@ -38,11 +38,8 @@ func LoadConfig() (*Config, error) {
 	}, nil
 }
 
-
-// loggingMiddleware aynı kalır...
 func loggingMiddleware(next http.Handler, log zerolog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// YENİ: /healthz isteklerini loglamadan atla
 		if r.URL.Path == "/healthz" {
 			next.ServeHTTP(w, r)
 			return
@@ -58,7 +55,6 @@ func loggingMiddleware(next http.Handler, log zerolog.Logger) http.Handler {
 	})
 }
 
-// "Sessiz" health check handler'ı
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"ok"}`))
@@ -95,12 +91,14 @@ func Run(cfg *Config, log zerolog.Logger) error {
 
 		var conn *grpc.ClientConn
 		for i := 0; i < 10; i++ {
-			// --- DÜZELTME BURADA ---
+			// --- KRİTİK DÜZELTME BAŞLANGICI ---
+			// `grpc.NewClient` yerine modern, context-aware `grpc.DialContext` kullanılıyor.
+			// Bu, bağlantı denemelerine zaman aşımı eklememizi sağlar.
 			dialCtx, dialCancel := context.WithTimeout(ctx, 10*time.Second)
-			// grpc.NewClient yerine grpc.DialContext kullanıyoruz ve dialCtx'i geçiriyoruz.
 			conn, err = grpc.DialContext(dialCtx, cfg.UserServiceAddr, opts...)
 			dialCancel() // Context'i hemen iptal et
 			// --- DÜZELTME SONU ---
+			
 			if err == nil {
 				log.Info().Str("dependency", cfg.UserServiceAddr).Msg("Arka uç gRPC servisine başarıyla bağlanıldı.")
 				break
@@ -116,8 +114,14 @@ func Run(cfg *Config, log zerolog.Logger) error {
 		defer conn.Close()
 		
 		grpcGatewayMux := runtime.NewServeMux()
-		// DÜZELTME: RegisterUserServiceHandlerFromEndpoint yerine RegisterUserServiceHandler kullanıyoruz, çünkü artık bir 'conn' nesnemiz var.
+		
+		// --- KRİTİK DÜZELTME BAŞLANGICI ---
+		// `RegisterUserServiceHandlerFromEndpoint` (string adres bekler) yerine
+		// `RegisterUserServiceHandler` (bağlantı nesnesi bekler) kullanılıyor.
+		// Bu, kurduğumuz güvenli mTLS bağlantısının proxy tarafından kullanılmasını sağlar.
 		err = userv1.RegisterUserServiceHandler(ctx, grpcGatewayMux, conn)
+		// --- DÜZELTME SONU ---
+		
 		if err != nil {
 			log.Error().Err(err).Msg("gRPC gateway handler'ı kaydedilemedi.")
 			return
