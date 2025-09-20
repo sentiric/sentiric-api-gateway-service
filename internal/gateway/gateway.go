@@ -20,14 +20,18 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// DÜZELTME: Config struct'ına Env ve LogLevel alanları eklendi.
 type Config struct {
 	HttpPort        string
 	UserServiceAddr string
 	CertPath        string
 	KeyPath         string
 	CaPath          string
+	Env             string
+	LogLevel        string
 }
 
+// DÜZELTME: LoadConfig artık Env ve LogLevel'i de okuyor.
 func LoadConfig() (*Config, error) {
 	return &Config{
 		HttpPort:        os.Getenv("API_GATEWAY_HTTP_PORT"),
@@ -35,6 +39,8 @@ func LoadConfig() (*Config, error) {
 		CertPath:        os.Getenv("API_GATEWAY_CERT_PATH"),
 		KeyPath:         os.Getenv("API_GATEWAY_KEY_PATH"),
 		CaPath:          os.Getenv("GRPC_TLS_CA_PATH"),
+		Env:             os.Getenv("ENV"),
+		LogLevel:        os.Getenv("LOG_LEVEL"),
 	}, nil
 }
 
@@ -70,11 +76,12 @@ func Run(cfg *Config, log zerolog.Logger) error {
 
 	go func() {
 		log.Info().Str("dependency", cfg.UserServiceAddr).Msg("Arka uç gRPC servisine bağlanılmaya çalışılıyor...")
-		
+
 		var creds credentials.TransportCredentials
 		var err error
 
-		if cfg.CertPath == "" || os.Getenv("ENV") == "development" {
+		// DÜZELTME: Artık cfg.Env üzerinden kontrol yapılıyor.
+		if cfg.CertPath == "" || cfg.Env == "development" {
 			log.Warn().Msg("mTLS sertifikaları bulunamadı veya geliştirme ortamı. Güvensiz (insecure) gRPC bağlantısı kullanılıyor.")
 			creds = insecure.NewCredentials()
 		} else {
@@ -91,14 +98,9 @@ func Run(cfg *Config, log zerolog.Logger) error {
 
 		var conn *grpc.ClientConn
 		for i := 0; i < 10; i++ {
-			// --- KRİTİK DÜZELTME BAŞLANGICI ---
-			// `grpc.NewClient` yerine modern, context-aware `grpc.DialContext` kullanılıyor.
-			// Bu, bağlantı denemelerine zaman aşımı eklememizi sağlar.
 			dialCtx, dialCancel := context.WithTimeout(ctx, 10*time.Second)
 			conn, err = grpc.DialContext(dialCtx, cfg.UserServiceAddr, opts...)
-			dialCancel() // Context'i hemen iptal et
-			// --- DÜZELTME SONU ---
-			
+			dialCancel()
 			if err == nil {
 				log.Info().Str("dependency", cfg.UserServiceAddr).Msg("Arka uç gRPC servisine başarıyla bağlanıldı.")
 				break
@@ -112,21 +114,14 @@ func Run(cfg *Config, log zerolog.Logger) error {
 			return
 		}
 		defer conn.Close()
-		
+
 		grpcGatewayMux := runtime.NewServeMux()
-		
-		// --- KRİTİK DÜZELTME BAŞLANGICI ---
-		// `RegisterUserServiceHandlerFromEndpoint` (string adres bekler) yerine
-		// `RegisterUserServiceHandler` (bağlantı nesnesi bekler) kullanılıyor.
-		// Bu, kurduğumuz güvenli mTLS bağlantısının proxy tarafından kullanılmasını sağlar.
 		err = userv1.RegisterUserServiceHandler(ctx, grpcGatewayMux, conn)
-		// --- DÜZELTME SONU ---
-		
 		if err != nil {
 			log.Error().Err(err).Msg("gRPC gateway handler'ı kaydedilemedi.")
 			return
 		}
-		
+
 		mainMux.Handle("/", loggingMiddleware(grpcGatewayMux, log))
 		log.Info().Msg("gRPC Gateway başarıyla başlatıldı ve ana yönlendiriciye eklendi.")
 	}()
@@ -134,7 +129,6 @@ func Run(cfg *Config, log zerolog.Logger) error {
 	log.Info().Str("port", cfg.HttpPort).Msg("HTTP sunucusu başlatılıyor (/healthz endpoint'i aktif).")
 	return http.ListenAndServe(fmt.Sprintf(":%s", cfg.HttpPort), mainMux)
 }
-
 
 func newClientTLS(certPath, keyPath, caPath, serverAddr string) (credentials.TransportCredentials, error) {
 	clientCert, err := tls.LoadX509KeyPair(certPath, keyPath)
