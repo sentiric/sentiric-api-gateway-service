@@ -2,7 +2,6 @@
 package main
 
 import (
-	// DEĞİŞİKLİK: Eksik importlar eklendi
 	"os"
 
 	"github.com/joho/godotenv"
@@ -24,8 +23,10 @@ func main() {
 
 	cfg, err := gateway.LoadConfig()
 	if err != nil {
-		// DEĞİŞİKLİK: zerolog ve os paketleri artık tanınıyor
-		zerolog.New(os.Stderr).Fatal().Err(err).Msg("Failed to load configuration")
+		// DÜZELTME: Logger henüz başlatılmadığı için, standart bir zerolog
+		// logger oluşturup hatayı basıyoruz.
+		log := zerolog.New(os.Stderr).With().Timestamp().Logger()
+		log.Fatal().Err(err).Msg("Failed to load configuration")
 	}
 
 	log := logger.New(serviceName, cfg.Env, cfg.LogLevel)
