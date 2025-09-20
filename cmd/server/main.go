@@ -2,7 +2,11 @@
 package main
 
 import (
+	// DEĞİŞİKLİK: Eksik importlar eklendi
+	"os"
+
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
 	"github.com/sentiric/sentiric-api-gateway-service/internal/gateway"
 	"github.com/sentiric/sentiric-api-gateway-service/internal/logger"
 )
@@ -18,16 +22,12 @@ const serviceName = "api-gateway-service"
 func main() {
 	godotenv.Load()
 
-	// DÜZELTME: Config yüklemesi log'dan önce yapılır.
 	cfg, err := gateway.LoadConfig()
 	if err != nil {
-		// Log nesnesi henüz yok, bu yüzden standart log kullan.
-		// log.Fatal().Err(err).Msg("Failed to load configuration") -> Standart loglama ile değiştir.
-		// Bu, zerolog'un varsayılan logger'ını kullanır.
+		// DEĞİŞİKLİK: zerolog ve os paketleri artık tanınıyor
 		zerolog.New(os.Stderr).Fatal().Err(err).Msg("Failed to load configuration")
 	}
 
-	// DÜZELTME: Logger artık dinamik olarak ENV ve LOG_LEVEL'i alıyor.
 	log := logger.New(serviceName, cfg.Env, cfg.LogLevel)
 
 	log.Info().
@@ -36,8 +36,7 @@ func main() {
 		Str("build_date", BuildDate).
 		Str("profile", cfg.Env).
 		Msg("🚀 Starting Sentiric API Gateway Service")
-	
-	// DÜZELTME: `Run` fonksiyonuna hem config hem de logger geçirilir.
+
 	if err := gateway.Run(cfg, log); err != nil {
 		log.Fatal().Err(err).Msg("Gateway failed to run")
 	}
