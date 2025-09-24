@@ -34,9 +34,9 @@ Bu servis, `grpc-gateway` kütüphanesini kullanarak Protobuf tanımlarından ot
 
 ## 🚀 Yerel Geliştirme
 
-1.  **Bağımlılıkları Yükleyin:** `go mod tidy`
-2.  **Ortam Değişkenlerini Ayarlayın:** `.env.docker`'ı `.env` olarak kopyalayın ve `USER_SERVICE_GRPC_URL` gibi hedef servislerin adreslerinin doğru olduğundan emin olun.
-3.  **Servisi Çalıştırın:** `go run ./cmd/server`
+1.  **Bağımlılıkları Yükleyin:**
+2.  **Ortam Değişkenlerini Ayarlayın:** `.env.example` dosyasını `.env` olarak kopyalayın ve gerekli değişkenleri doldurun.
+3.  **Servisi Çalıştırın:**
 
 ## 🤝 Katkıda Bulunma
 
