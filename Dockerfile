@@ -1,7 +1,7 @@
 ### File: `sentiric-api-gateway-service/Dockerfile` (GÜNCELLENMİŞ VE DOĞRULANMIŞ)
 
 # --- İNŞA AŞAMASI (DEBIAN TABANLI) ---
-FROM golang:1.24-bullseye AS builder
+FROM golang:1.25-bullseye AS builder
 
 # Build argümanlarını build aşamasında kullanılabilir yap
 ARG GIT_COMMIT="unknown"
